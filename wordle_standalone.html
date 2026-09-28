@@ -79,6 +79,102 @@
       pointer-events: none;
     }
 
+    /* Help button */
+    #help-btn {
+      position: absolute; right: 0;
+      background: none; border: none;
+      cursor: pointer;
+      font-size: 1.3rem;
+      line-height: 1;
+      padding: 4px 6px;
+      border-radius: 6px;
+      color: var(--text);
+      transition: background 0.15s;
+    }
+    #help-btn:hover { background: var(--surface); }
+
+    /* Modal overlay */
+    #modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #modal-overlay.open { display: flex; }
+
+    #modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 24px;
+      max-width: 420px;
+      width: 100%;
+      position: relative;
+      animation: modalIn 0.2s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+
+    #modal h2 {
+      font-size: 1.1rem; font-weight: 900;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 18px;
+      color: var(--text);
+    }
+    #modal-close {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none;
+      font-size: 1.4rem; cursor: pointer;
+      color: var(--subtext);
+      line-height: 1;
+    }
+    #modal-close:hover { color: var(--text); }
+
+    .modal-rule {
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+    .modal-rule strong { color: var(--text); }
+
+    .modal-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 14px 0;
+    }
+
+    /* Example row in modal */
+    .modal-example {
+      display: flex;
+      gap: 4px;
+      margin: 10px 0 4px;
+    }
+    .modal-tile {
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; font-weight: 800;
+      text-transform: uppercase;
+      border: 2px solid var(--border);
+      color: var(--text);
+    }
+    .modal-tile.correct { background: var(--correct); border-color: var(--correct); color: #fff; }
+    .modal-tile.present { background: var(--present); border-color: var(--present); color: #fff; }
+    .modal-tile.absent  { background: var(--absent);  border-color: var(--absent);  color: #fff; }
+
+    .modal-caption {
+      font-size: 0.82rem;
+      color: var(--subtext);
+      margin-bottom: 8px;
+    }
+    .modal-caption strong { color: var(--text); }
+
     /* Toast */
     #toast-wrap {
       position: fixed; top: calc(var(--header-h) + 16px);
@@ -204,6 +300,7 @@
 
       header h1 { font-size: 1.4rem; }
       #attempt-badge { font-size: 0.7rem; padding: 3px 9px; }
+      #theme-label { display: none; }
 
       #board { grid-template-rows: repeat(6, 52px); gap: 4px; }
       .row   { grid-template-columns: repeat(5, 52px); gap: 4px; }
@@ -252,7 +349,54 @@
   <span id="theme-label">Dark</span>
   <h1>Wordle</h1>
   <span id="attempt-badge">0 / 6</span>
+  <button id="help-btn" onclick="openHelp()" title="How to play">?</button>
 </header>
+
+<!-- How to play modal -->
+<div id="modal-overlay" onclick="closeHelpOutside(event)">
+  <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button id="modal-close" onclick="closeHelp()" aria-label="Close">✕</button>
+    <h2 id="modal-title">How to Play</h2>
+
+    <p class="modal-rule">Guess the <strong>WORDLE</strong> in <strong>6 tries</strong>.</p>
+    <p class="modal-rule">Each guess must be a valid <strong>5-letter word</strong> from the SOWPODS dictionary. Press <strong>Enter</strong> to submit.</p>
+    <p class="modal-rule">After each guess the tiles will change colour to show how close you were.</p>
+
+    <hr class="modal-divider" />
+
+    <p class="modal-rule"><strong>Examples</strong></p>
+
+    <div class="modal-example">
+      <div class="modal-tile correct">W</div>
+      <div class="modal-tile">E</div>
+      <div class="modal-tile">A</div>
+      <div class="modal-tile">R</div>
+      <div class="modal-tile">Y</div>
+    </div>
+    <p class="modal-caption"><strong>W</strong> is in the word and in the correct spot.</p>
+
+    <div class="modal-example">
+      <div class="modal-tile">P</div>
+      <div class="modal-tile present">I</div>
+      <div class="modal-tile">L</div>
+      <div class="modal-tile">L</div>
+      <div class="modal-tile">S</div>
+    </div>
+    <p class="modal-caption"><strong>I</strong> is in the word but in the wrong spot.</p>
+
+    <div class="modal-example">
+      <div class="modal-tile">V</div>
+      <div class="modal-tile">A</div>
+      <div class="modal-tile">G</div>
+      <div class="modal-tile absent">U</div>
+      <div class="modal-tile">E</div>
+    </div>
+    <p class="modal-caption"><strong>U</strong> is not in the word at all.</p>
+
+    <hr class="modal-divider" />
+    <p class="modal-rule">A new game starts automatically after each round. Use the <strong>🔄 New Game</strong> button to play again any time.</p>
+  </div>
+</div>
 
 <div id="toast-wrap"></div>
 
@@ -468,6 +612,26 @@
   function endGame() {
     gameOver = true;
     document.getElementById('new-game-btn').style.display = 'block';
+  }
+
+  // ── Help modal ─────────────────────────────────────────────────────────────
+  function openHelp() {
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+  function closeHelp() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+  function closeHelpOutside(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeHelp();
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeHelp();
+  });
+
+  // Show instructions on very first visit
+  if (!localStorage.getItem('wordle-visited')) {
+    localStorage.setItem('wordle-visited', '1');
+    setTimeout(openHelp, 400);
   }
 
   // ── Themes ─────────────────────────────────────────────────────────────────
