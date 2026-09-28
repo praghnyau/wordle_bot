@@ -58,6 +58,27 @@
       padding: 4px 12px;
     }
 
+    /* Theme toggle */
+    #theme-btn {
+      position: absolute; left: 0;
+      background: none; border: none;
+      cursor: pointer;
+      font-size: 1.3rem;
+      line-height: 1;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    #theme-btn:hover { background: var(--surface); }
+    #theme-label {
+      position: absolute; left: 36px;
+      font-size: 0.68rem; font-weight: 700;
+      color: var(--subtext);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      pointer-events: none;
+    }
+
     /* Toast */
     #toast-wrap {
       position: fixed; top: calc(var(--header-h) + 16px);
@@ -227,6 +248,8 @@
 <body>
 
 <header>
+  <button id="theme-btn" onclick="cycleTheme()" title="Toggle theme">🌙</button>
+  <span id="theme-label">Dark</span>
   <h1>Wordle</h1>
   <span id="attempt-badge">0 / 6</span>
 </header>
@@ -446,6 +469,78 @@
     gameOver = true;
     document.getElementById('new-game-btn').style.display = 'block';
   }
+
+  // ── Themes ─────────────────────────────────────────────────────────────────
+  const THEMES = [
+    {
+      name: 'Dark',
+      icon: '🌙',
+      vars: {
+        '--bg':           '#111113',
+        '--surface':      '#1a1a1d',
+        '--border':       '#3a3a3c',
+        '--border-filled':'#565658',
+        '--text':         '#ffffff',
+        '--subtext':      '#818384',
+        '--correct':      '#538d4e',
+        '--present':      '#b59f3b',
+        '--absent':       '#3a3a3c',
+        '--key-bg':       '#818384',
+      }
+    },
+    {
+      name: 'Light',
+      icon: '☀️',
+      vars: {
+        '--bg':           '#ffffff',
+        '--surface':      '#f0f0f0',
+        '--border':       '#d3d6da',
+        '--border-filled':'#878a8c',
+        '--text':         '#1a1a1b',
+        '--subtext':      '#787c7e',
+        '--correct':      '#6aaa64',
+        '--present':      '#c9b458',
+        '--absent':       '#787c7e',
+        '--key-bg':       '#d3d6da',
+      }
+    },
+    {
+      name: 'Contrast',
+      icon: '🎨',
+      vars: {
+        '--bg':           '#000000',
+        '--surface':      '#1a1a1a',
+        '--border':       '#565656',
+        '--border-filled':'#999999',
+        '--text':         '#ffffff',
+        '--subtext':      '#aaaaaa',
+        '--correct':      '#f5793a',
+        '--present':      '#85c0f9',
+        '--absent':       '#4a4a4a',
+        '--key-bg':       '#666666',
+      }
+    },
+  ];
+
+  let themeIndex = 0;
+
+  function applyTheme(idx) {
+    const theme = THEMES[idx];
+    const root  = document.documentElement.style;
+    Object.entries(theme.vars).forEach(([k, v]) => root.setProperty(k, v));
+    document.getElementById('theme-btn').textContent   = theme.icon;
+    document.getElementById('theme-label').textContent = theme.name;
+    localStorage.setItem('wordle-theme', idx);
+  }
+
+  function cycleTheme() {
+    themeIndex = (themeIndex + 1) % THEMES.length;
+    applyTheme(themeIndex);
+  }
+
+  // restore saved theme
+  themeIndex = parseInt(localStorage.getItem('wordle-theme') || '0', 10);
+  applyTheme(themeIndex);
 
   init();
 </script>
