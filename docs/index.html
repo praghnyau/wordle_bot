@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wordle — SOWPODS Edition</title>
+  <meta name="description" content="Play Wordle in your browser using the full SOWPODS dictionary. Guess the 5-letter word in 6 tries." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #111113;
+      --surface:     #1a1a1d;
+      --border:      #3a3a3c;
+      --border-filled: #565658;
+      --text:        #ffffff;
+      --subtext:     #818384;
+      --correct:     #538d4e;
+      --present:     #b59f3b;
+      --absent:      #3a3a3c;
+      --key-bg:      #818384;
+      --header-h:    64px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* ── Loading ─────────────────────────────── */
+    #loading {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px; z-index: 999;
+    }
+    #loading h2 { font-size: 2rem; letter-spacing: 0.3em; opacity: .8; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--correct);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Header ──────────────────────────────── */
+    header {
+      width: 100%; max-width: 500px;
+      height: var(--header-h);
+      display: flex; align-items: center; justify-content: center;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    header h1 {
+      font-size: 1.9rem; font-weight: 900;
+      letter-spacing: 0.25em; text-transform: uppercase;
+    }
+    #attempt-badge {
+      position: absolute; right: 0;
+      font-size: 0.78rem; font-weight: 700;
+      color: var(--subtext);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+    }
+
+    /* ── Toast ───────────────────────────────── */
+    #toast-wrap {
+      position: fixed; top: calc(var(--header-h) + 16px);
+      left: 50%; transform: translateX(-50%);
+      z-index: 50;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--text); color: var(--bg);
+      font-weight: 800; font-size: 0.85rem;
+      padding: 10px 18px; border-radius: 6px;
+      animation: toastAnim 1.6s ease forwards;
+    }
+    .toast.long { animation-duration: 3.5s; }
+    @keyframes toastAnim {
+      0%   { opacity: 0; transform: translateY(-6px) scale(.96); }
+      12%  { opacity: 1; transform: translateY(0)    scale(1); }
+      75%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ── Board ───────────────────────────────── */
+    #board-wrap {
+      flex: 1; display: flex;
+      align-items: center; justify-content: center;
+      padding: 16px 0 8px;
+    }
+    #board {
+      display: grid;
+      grid-template-rows: repeat(6, 62px);
+      gap: 5px;
+    }
+    .row { display: grid; grid-template-columns: repeat(5, 62px); gap: 5px; }
+
+    .tile {
+      width: 62px; height: 62px;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; font-weight: 800;
+      text-transform: uppercase;
+      transition: border-color 0.05s;
+      perspective: 250px;
+    }
+    .tile.filled  { border-color: var(--border-filled); }
+    .tile.correct { background: var(--correct); border-color: var(--correct); }
+    .tile.present { background: var(--present); border-color: var(--present); }
+    .tile.absent  { background: var(--absent);  border-color: var(--absent); }
+
+    /* animations */
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%     { transform: translateX(-5px); }
+      40%     { transform: translateX(5px); }
+      60%     { transform: translateX(-5px); }
+      80%     { transform: translateX(5px); }
+    }
+    @keyframes flipIn {
+      0%  { transform: rotateX(0deg); }
+      100%{ transform: rotateX(-90deg); }
+    }
+    @keyframes flipOut {
+      0%  { transform: rotateX(-90deg); }
+      100%{ transform: rotateX(0deg); }
+    }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      35%     { transform: translateY(-22px); }
+    }
+
+    .tile.pop    { animation: pop 0.1s ease; }
+    .tile.shake  { animation: shake 0.45s ease; }
+    .tile.flip-in  { animation: flipIn  0.22s ease-in  forwards; }
+    .tile.flip-out { animation: flipOut 0.22s ease-out forwards; }
+    .tile.bounce { animation: bounce 0.45s ease; }
+
+    /* ── Keyboard ─────────────────────────────── */
+    #keyboard {
+      width: 100%; max-width: 500px;
+      padding: 0 6px 20px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .kb-row { display: flex; justify-content: center; gap: 6px; }
+
+    .key {
+      height: 58px; min-width: 43px;
+      background: var(--key-bg); color: var(--text);
+      border: none; border-radius: 4px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.82rem; font-weight: 700;
+      cursor: pointer; text-transform: uppercase;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0 6px;
+      transition: background 0.25s, transform 0.1s;
+    }
+    .key:hover  { filter: brightness(1.18); }
+    .key:active { transform: scale(0.94); }
+    .key.wide   { min-width: 66px; font-size: 0.75rem; }
+    .key.correct{ background: var(--correct); }
+    .key.present{ background: var(--present); }
+    .key.absent { background: var(--absent); }
+
+    /* ── New-game button ─────────────────────── */
+    #new-game-btn {
+      display: none;
+      margin: 8px auto 20px;
+      padding: 13px 32px;
+      background: var(--correct); color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem; font-weight: 800;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      border: none; border-radius: 6px; cursor: pointer;
+      transition: filter 0.15s;
+    }
+    #new-game-btn:hover { filter: brightness(1.12); }
+  </style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div id="loading">
+  <h2>WORDLE</h2>
+  <div class="spinner"></div>
+</div>
+
+<!-- Game -->
+<header>
+  <h1>Wordle</h1>
+  <span id="attempt-badge">0 / 6</span>
+</header>
+
+<div id="toast-wrap"></div>
+
+<div id="board-wrap">
+  <div id="board"></div>
+</div>
+
+<div id="keyboard"></div>
+<button id="new-game-btn" onclick="newGame()">&#8635; New Game</button>
+
+<script>
+  const ROWS = 6, COLS = 5;
+  const COLOR_CLASS = { G: 'correct', Y: 'present', B: 'absent' };
+  const WIN_MSGS    = ['Genius!', 'Magnificent!', 'Impressive!', 'Splendid!', 'Great!', 'Phew!'];
+  const FLIP_MS     = 220;
+  const STAGGER_MS  = 320;
+
+  let wordList = [], wordSet = new Set(), answer = '';
+  let board = [], keyEls = {};
+  let curRow = 0, curCol = 0, curGuess = Array(5).fill('');
+  let gameOver = false;
+
+  /* ── Init ─────────────────────────────────── */
+  async function init() {
+    try {
+      const res = await fetch('/sowpods_5letter.txt');
+      if (!res.ok) throw new Error(res.statusText);
+      const txt = await res.text();
+      wordList  = txt.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length === 5 && /^[A-Z]+$/.test(w));
+      wordSet   = new Set(wordList);
+    } catch (e) {
+      document.getElementById('loading').innerHTML = '<h2 style="color:#e44">Could not load word list.</h2>';
+      return;
+    }
+    document.getElementById('loading').style.display = 'none';
+    document.addEventListener('keydown', onKeydown);
+    newGame();
+  }
+
+  function newGame() {
+    answer   = wordList[Math.floor(Math.random() * wordList.length)];
+    curRow   = 0; curCol = 0;
+    curGuess = Array(5).fill('');
+    gameOver = false;
+    document.getElementById('new-game-btn').style.display = 'none';
+    setBadge(0);
+    buildBoard();
+    buildKeyboard();
+  }
+
+  /* ── Board ─────────────────────────────────── */
+  function buildBoard() {
+    const el = document.getElementById('board');
+    el.innerHTML = '';
+    board = [];
+    for (let r = 0; r < ROWS; r++) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      board[r] = [];
+      for (let c = 0; c < COLS; c++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile';
+        row.appendChild(tile);
+        board[r][c] = tile;
+      }
+      el.appendChild(row);
+    }
+  }
+
+  /* ── Keyboard ──────────────────────────────── */
+  const KB_LAYOUT = [
+    ['Q','W','E','R','T','Y','U','I','O','P'],
+    ['A','S','D','F','G','H','J','K','L'],
+    ['ENTER','Z','X','C','V','B','N','M','DEL']
+  ];
+
+  function buildKeyboard() {
+    const el = document.getElementById('keyboard');
+    el.innerHTML = '';
+    keyEls = {};
+    KB_LAYOUT.forEach(row => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'kb-row';
+      row.forEach(k => {
+        const btn = document.createElement('button');
+        btn.className = 'key' + (k.length > 1 ? ' wide' : '');
+        btn.textContent = k === 'DEL' ? '⌫' : k;
+        btn.setAttribute('data-key', k);
+        btn.addEventListener('click', () => handleKey(k));
+        rowEl.appendChild(btn);
+        if (k.length === 1) keyEls[k] = btn;
+      });
+      el.appendChild(rowEl);
+    });
+  }
+
+  /* ── Input ─────────────────────────────────── */
+  function onKeydown(e) {
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key === 'Backspace') handleKey('DEL');
+    else if (e.key === 'Enter') handleKey('ENTER');
+    else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+  }
+
+  function handleKey(k) {
+    if (gameOver) return;
+    if (k === 'DEL')   deleteLetter();
+    else if (k === 'ENTER') submitGuess();
+    else if (/^[A-Z]$/.test(k)) addLetter(k);
+  }
+
+  function addLetter(l) {
+    if (curCol >= 5) return;
+    const t = board[curRow][curCol];
+    t.textContent = l;
+    t.classList.add('filled');
+    anim(t, 'pop', 120);
+    curGuess[curCol++] = l;
+  }
+
+  function deleteLetter() {
+    if (curCol <= 0) return;
+    const t = board[curRow][--curCol];
+    t.textContent = '';
+    t.classList.remove('filled');
+    curGuess[curCol] = '';
+  }
+
+  /* ── Submit ────────────────────────────────── */
+  function submitGuess() {
+    if (curCol < 5)         { toast('Not enough letters'); shakeRow(curRow); return; }
+    const guess = curGuess.join('');
+    if (!wordSet.has(guess)){ toast('Not in word list');   shakeRow(curRow); return; }
+
+    const fb = getFeedback(guess, answer);
+    gameOver = true;   // lock input during reveal
+    revealRow(curRow, guess, fb);
+  }
+
+  function getFeedback(guess, ans) {
+    const fb = Array(5).fill('B');
+    const pool = ans.split('');
+    for (let i = 0; i < 5; i++) if (guess[i] === ans[i]) { fb[i] = 'G'; pool[i] = null; }
+    for (let i = 0; i < 5; i++) if (fb[i] === 'B') {
+      const idx = pool.indexOf(guess[i]);
+      if (idx !== -1) { fb[i] = 'Y'; pool[idx] = null; }
+    }
+    return fb;
+  }
+
+  /* ── Reveal animation ──────────────────────── */
+  function revealRow(row, guess, fb) {
+    fb.forEach((f, c) => {
+      const t = board[row][c];
+      const delay = c * STAGGER_MS;
+
+      // flip-in (hide letter face)
+      setTimeout(() => anim(t, 'flip-in', FLIP_MS), delay);
+
+      // at midpoint apply colour, then flip-out
+      setTimeout(() => {
+        t.classList.add(COLOR_CLASS[f]);
+        anim(t, 'flip-out', FLIP_MS);
+      }, delay + FLIP_MS);
+    });
+
+    const totalMs = (COLS - 1) * STAGGER_MS + FLIP_MS * 2 + 100;
+    setTimeout(() => {
+      updateKeyboard(guess, fb);
+      const won = fb.every(f => f === 'G');
+      curRow++;
+      setBadge(curRow);
+      if (won) {
+        bounceRow(row);
+        setTimeout(() => { toast(WIN_MSGS[row] || 'Amazing!', true); endGame(); }, 350);
+      } else if (curRow >= ROWS) {
+        setTimeout(() => { toast(answer, true); endGame(); }, 200);
+      } else {
+        curCol = 0; curGuess = Array(5).fill('');
+        gameOver = false;
+      }
+    }, totalMs);
+  }
+
+  /* ── Keyboard colour update ────────────────── */
+  const KBP = { G: 3, Y: 2, B: 1 };
+  function updateKeyboard(guess, fb) {
+    fb.forEach((f, i) => {
+      const btn = keyEls[guess[i]];
+      if (!btn) return;
+      const cur = btn.dataset.state || '';
+      if ((KBP[f] || 0) > (KBP[cur] || 0)) {
+        btn.classList.remove('correct','present','absent');
+        btn.classList.add(COLOR_CLASS[f]);
+        btn.dataset.state = f;
+      }
+    });
+  }
+
+  /* ── Helpers ───────────────────────────────── */
+  function anim(el, cls, ms) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), ms);
+  }
+
+  function shakeRow(row) {
+    board[row].forEach(t => anim(t, 'shake', 460));
+  }
+
+  function bounceRow(row) {
+    board[row].forEach((t, c) => setTimeout(() => anim(t, 'bounce', 460), c * 80));
+  }
+
+  function toast(msg, long = false) {
+    const wrap = document.getElementById('toast-wrap');
+    const el = document.createElement('div');
+    el.className = 'toast' + (long ? ' long' : '');
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), long ? 3600 : 1700);
+  }
+
+  function setBadge(n) {
+    document.getElementById('attempt-badge').textContent = n + ' / 6';
+  }
+
+  function endGame() {
+    gameOver = true;
+    document.getElementById('new-game-btn').style.display = 'block';
+  }
+
+  init();
+</script>
+</body>
+</html>
