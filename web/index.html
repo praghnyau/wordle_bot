@@ -236,7 +236,7 @@
   /* ── Init ─────────────────────────────────── */
   async function init() {
     try {
-      const res = await fetch('/sowpods_5letter.txt');
+      const res = await fetch('./sowpods_5letter.txt');
       if (!res.ok) throw new Error(res.statusText);
       const txt = await res.text();
       wordList  = txt.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length === 5 && /^[A-Z]+$/.test(w));
