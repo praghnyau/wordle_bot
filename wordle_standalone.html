@@ -176,6 +176,52 @@
       transition: filter 0.15s;
     }
     #new-game-btn:hover { filter: brightness(1.12); }
+
+    /* ── Mobile: medium phones (≤480px) ── */
+    @media (max-width: 480px) {
+      :root { --header-h: 52px; }
+
+      header h1 { font-size: 1.4rem; }
+      #attempt-badge { font-size: 0.7rem; padding: 3px 9px; }
+
+      #board { grid-template-rows: repeat(6, 52px); gap: 4px; }
+      .row   { grid-template-columns: repeat(5, 52px); gap: 4px; }
+      .tile  { width: 52px; height: 52px; font-size: 1.6rem; }
+
+      #keyboard { padding: 0 4px 14px; gap: 6px; }
+      .kb-row   { gap: 4px; }
+      .key      { height: 50px; min-width: 32px; font-size: 0.75rem; padding: 0 3px; }
+      .key.wide { min-width: 50px; font-size: 0.68rem; }
+
+      #new-game-btn { padding: 11px 24px; font-size: 0.85rem; }
+    }
+
+    /* ── Mobile: small phones (≤360px) ── */
+    @media (max-width: 360px) {
+      #board { grid-template-rows: repeat(6, 44px); gap: 3px; }
+      .row   { grid-template-columns: repeat(5, 44px); gap: 3px; }
+      .tile  { width: 44px; height: 44px; font-size: 1.35rem; }
+
+      .key      { height: 44px; min-width: 28px; font-size: 0.7rem; }
+      .key.wide { min-width: 44px; font-size: 0.62rem; }
+    }
+
+    /* ── Landscape on mobile ── */
+    @media (max-height: 600px) and (orientation: landscape) {
+      :root { --header-h: 44px; }
+
+      header h1 { font-size: 1.1rem; }
+
+      #board-wrap { padding: 6px 0 4px; }
+      #board { grid-template-rows: repeat(6, 40px); gap: 3px; }
+      .row   { grid-template-columns: repeat(5, 40px); gap: 3px; }
+      .tile  { width: 40px; height: 40px; font-size: 1.2rem; }
+
+      #keyboard { padding: 0 4px 8px; gap: 4px; }
+      .kb-row   { gap: 3px; }
+      .key      { height: 36px; min-width: 28px; font-size: 0.68rem; }
+      .key.wide { min-width: 44px; }
+    }
   </style>
 </head>
 <body>
